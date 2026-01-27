@@ -64,7 +64,7 @@ DefaultAzureCredential attempts credentials in this order:
 7. **AzurePowerShellCredential** - Uses Azure PowerShell logged-in account
 8. **AzureDeveloperCliCredential** - Uses Azure Developer CLI logged-in account
 
-Note: InteractiveBrowserCredential is NOT included by default as it requires user interaction. BrokerCredential requires explicit opt-in and additional packages.
+Note: InteractiveBrowserCredential and BrokerCredential are NOT included by default. InteractiveBrowserCredential requires user interaction and BrokerCredential requires additional packages and explicit configuration.
 
 **Example usage:**
 
@@ -338,7 +338,7 @@ var credential = new AzureDeveloperCliCredential();
 
 **Pros:**
 - Integrates with modern Azure development workflows
-- Good for azd-based projects
+- Good for Azure Developer CLI (azd) based projects
 
 **Cons:**
 - Requires Azure Developer CLI
@@ -462,7 +462,7 @@ var client = new SecretClient(vaultUri, credential);
 
 ### Pattern 2: Explicit Credentials for Clarity
 
-**Local development:**
+**Using conditional compilation (use with caution):**
 ```csharp
 #if DEBUG
 var credential = new AzureCliCredential();
@@ -476,6 +476,8 @@ var credential = new ManagedIdentityCredential();
 - Easier to debug
 - Explicit control
 
+**Warning:** This approach only works if you deploy Release builds to production and Debug builds locally. If you accidentally deploy a Debug build to production or run a Release build locally, authentication will fail. For most scenarios, **use DefaultAzureCredential instead** (Pattern 1).
+
 ---
 
 ### Pattern 3: User-Assigned Managed Identity
@@ -483,9 +485,7 @@ var credential = new ManagedIdentityCredential();
 **When you have multiple user-assigned identities:**
 
 ```csharp
-var credential = new ManagedIdentityCredential(
-    new ManagedIdentityClientId("<user-assigned-identity-client-id>")
-);
+var credential = new ManagedIdentityCredential(clientId: "<user-assigned-identity-client-id>");
 ```
 
 ---
@@ -635,7 +635,8 @@ var client = new SecretClient(vaultUri, credential);
 ```
 
 **Don't forget:**
-- Enable managed identity on your Azure resource (or set environment variables for local dev)
+- Enable managed identity on your Azure resource for production
+- For local development, use Azure CLI (`az login`) - DefaultAzureCredential will automatically detect it
 - Grant proper RBAC permissions to the managed identity
 
 ---
