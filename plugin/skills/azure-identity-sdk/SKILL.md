@@ -35,7 +35,7 @@ Use this skill when developers need help with:
 
 ## Overview
 
-The Azure Identity SDK provides Azure Active Directory (Azure AD) token authentication across the Azure SDK. It offers several credential classes that encapsulate different authentication methods, making it easy to authenticate to Azure services without managing secrets directly in code.
+The Azure Identity SDK provides Microsoft Entra ID (formerly Azure Active Directory) token authentication across the Azure SDK. It offers several credential classes that encapsulate different authentication methods, making it easy to authenticate to Azure services without managing secrets directly in code.
 
 ### Key Principle
 
@@ -58,19 +58,20 @@ DefaultAzureCredential attempts credentials in this order:
 1. **EnvironmentCredential** - Checks environment variables
 2. **WorkloadIdentityCredential** - For Azure Kubernetes Service workload identity
 3. **ManagedIdentityCredential** - For Azure resources with managed identity
-4. **SharedTokenCacheCredential** - Uses shared token cache (Azure CLI, Visual Studio)
-5. **VisualStudioCredential** - Uses Visual Studio signed-in account
-6. **VisualStudioCodeCredential** - Uses VS Code signed-in account (deprecated)
-7. **AzureCliCredential** - Uses Azure CLI logged-in account
-8. **AzurePowerShellCredential** - Uses Azure PowerShell logged-in account
-9. **AzureDeveloperCliCredential** - Uses Azure Developer CLI logged-in account
-10. **InteractiveBrowserCredential** - Prompts user login via browser
+4. **VisualStudioCredential** - Uses Visual Studio signed-in account (Windows only)
+5. **VisualStudioCodeCredential** - Uses VS Code signed-in account (deprecated)
+6. **AzureCliCredential** - Uses Azure CLI logged-in account
+7. **AzurePowerShellCredential** - Uses Azure PowerShell logged-in account
+8. **AzureDeveloperCliCredential** - Uses Azure Developer CLI logged-in account
+
+Note: InteractiveBrowserCredential is NOT included by default as it requires user interaction. BrokerCredential requires explicit opt-in and additional packages.
 
 **Example usage:**
 
 .NET:
 ```csharp
 using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 
 var credential = new DefaultAzureCredential();
 var client = new SecretClient(new Uri("https://myvault.vault.azure.net/"), credential);
@@ -79,6 +80,7 @@ var client = new SecretClient(new Uri("https://myvault.vault.azure.net/"), crede
 JavaScript/TypeScript:
 ```javascript
 const { DefaultAzureCredential } = require("@azure/identity");
+const { SecretClient } = require("@azure/keyvault-secrets");
 
 const credential = new DefaultAzureCredential();
 const client = new SecretClient("https://myvault.vault.azure.net/", credential);
@@ -87,6 +89,7 @@ const client = new SecretClient("https://myvault.vault.azure.net/", credential);
 Python:
 ```python
 from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 credential = DefaultAzureCredential()
 client = SecretClient(vault_url="https://myvault.vault.azure.net/", credential=credential)
@@ -159,7 +162,7 @@ var credential = new EnvironmentCredential();
 
 #### WorkloadIdentityCredential
 
-**What it is:** Authenticates using Azure Workload Identity (federated identity for Kubernetes).
+**What it is:** Authenticates using Azure Workload Identity (federated identity for Kubernetes with Microsoft Entra ID).
 
 **When to use:**
 - Azure Kubernetes Service (AKS) workloads
@@ -167,7 +170,7 @@ var credential = new EnvironmentCredential();
 - Replacing pod-managed identity
 
 **Setup:**
-Requires AKS cluster configured with workload identity and a service account bound to an Azure AD application.
+Requires AKS cluster configured with workload identity and a service account bound to a Microsoft Entra ID application.
 
 **Example:**
 ```csharp
@@ -516,7 +519,7 @@ var credential = new ChainedTokenCredential(
 2. **Managed identity** - Is it enabled on the Azure resource?
 3. **Azure CLI** - Run `az account show` to verify login
 4. **Visual Studio** - Check Tools → Options → Azure Service Authentication
-5. **Network/firewall** - Can you reach Azure AD endpoints?
+5. **Network/firewall** - Can you reach Microsoft Entra ID endpoints?
 
 **Enable logging to see which credentials are tried:**
 
@@ -608,21 +611,32 @@ var client = new BlobServiceClient(
 - Enable managed identity on your Azure resource
 - Grant "Storage Blob Data Contributor" role to the managed identity
 
-### From Access Keys to Credentials
+### From Service Principal to DefaultAzureCredential
 
-**Before:**
+**Before (hardcoded service principal):**
 ```csharp
-var client = new SecretClient(
-    vaultUri,
-    new ClientSecretCredential(tenantId, clientId, clientSecret)
-);
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
+var tenantId = "your-tenant-id";
+var clientId = "your-client-id"; 
+var clientSecret = "your-client-secret";
+var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+var client = new SecretClient(vaultUri, credential);
 ```
 
-**After:**
+**After (using DefaultAzureCredential):**
 ```csharp
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
 var credential = new DefaultAzureCredential();
 var client = new SecretClient(vaultUri, credential);
 ```
+
+**Don't forget:**
+- Enable managed identity on your Azure resource (or set environment variables for local dev)
+- Grant proper RBAC permissions to the managed identity
 
 ---
 
@@ -661,5 +675,5 @@ A: Depends on the Azure service. For example:
 - [Azure Identity client library for Python](https://learn.microsoft.com/en-us/python/api/azure-identity)
 - [Azure Identity client library for Java](https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme)
 - [Credential chains in Azure Identity](https://learn.microsoft.com/en-us/dotnet/azure/sdk/authentication/credential-chains)
-- [Managed identities for Azure resources](https://learn.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview)
+- [Managed identities for Azure resources](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview)
 - [Azure Workload Identity](https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview)
