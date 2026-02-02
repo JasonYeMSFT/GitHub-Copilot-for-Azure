@@ -156,7 +156,7 @@ jobs:
 
       - name: Get updated skills
         id: get-changed-skills
-        if: steps.changed-skills.outputs.skills_pattern != ''
+        if: steps.get-pr-number.outputs.pr_number != ''
         env:
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_BASE_REF: ${{ github.base_ref }}
