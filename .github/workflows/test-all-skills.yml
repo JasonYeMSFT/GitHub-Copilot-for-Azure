@@ -52,6 +52,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }} # Checkout the actual head of the PR branch
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -164,7 +165,7 @@ jobs:
           GH_EVENT_ACTION: ${{ github.event.action }}
           GH_BASE_REF: ${{ github.base_ref }}
           GH_BEFORE: ${{ github.event.before }}
-          GH_SHA: ${{ github.sha }}
+          GH_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [ "$GH_EVENT_ACTION" = "opened" ] || [ "$GH_EVENT_ACTION" = "reopened" ]; then
             # For new PRs, compare against base branch
