@@ -7,6 +7,7 @@ name: Test All Skills
 
 permissions:
   contents: read
+  pull-requests: write
 
 on:
   workflow_dispatch:
@@ -123,6 +124,113 @@ jobs:
               console.log('| Lines | ' + c.lines.pct + '% |');
             " >> $GITHUB_STEP_SUMMARY
           fi
+      
+      # High level steps to run the integration tests for modified skills/tests
+      # 1.1 On PR, use git diff command to compare the current branch against the base branch for modified files
+      # 1.2 On Push, use git diff command to compare the current commit against the previous commit for modified files
+      # 2 Once we have the modified files, filter them to extract the skills whose content or test have been modified
+      # 3 Compose a include pattern for these modified skills to run integration tests for them
+      # 4 After the test finishes, run the merge result script to get a summary
+      # 5 Add a comment on the PR with the content of the summary
+      
+      - name: Setup Copilot CLI
+        id: setup-copilot-cli
+        uses: mvkaran/setup-copilot-cli@v1
+        with:
+          token: ${{ secrets.COPILOT_CLI_TOKEN }}
+
+      - name: Get PR number
+        id: get-pr-number
+        if: 
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REF_NAME: ${{ github.ref_name }}
+        run: |
+          PR_NUMBER=$(gh pr list --head "$GH_REF_NAME" --state open --json number --jq '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Found PR #$PR_NUMBER"
+          else
+            echo "No open PR found for this branch"
+          fi
+
+      - name: Get updated skills
+        id: get-changed-skills
+        if: steps.changed-skills.outputs.skills_pattern != ''
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_BASE_REF: ${{ github.base_ref }}
+          GH_BEFORE: ${{ github.event.before }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          if [ "$GH_EVENT_NAME" = "pull_request" ]; then
+            # For PRs, compare against base branch
+            git fetch origin "$GH_BASE_REF" --depth=1
+            CHANGED=$(git diff --name-only "origin/$GH_BASE_REF"...HEAD)
+          else
+            # For push events, compare with previous commit
+            CHANGED=$(git diff --name-only "$GH_BEFORE" "$GH_SHA")
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # Extract skill names from changed files matching plugin/skills/{skill}/* or tests/{skill}/*
+          SKILLS=$(echo "$CHANGED" | \
+            grep -E '^(plugin/skills/[^/]+/|tests/[^/]+/)' | \
+            sed -E 's|^plugin/skills/([^/]+)/.*|\1|; s|^tests/([^/]+)/.*|\1|' | \
+            sort -u)
+
+          echo "Changed skills:"
+          echo "$SKILLS"
+
+          # Save as a |-separated test path patterns to step output
+          SKILLS_PATTERN=$(echo "$SKILLS" | tr '\n' '|' | sed 's/|$//')
+          echo "skills_pattern=$SKILLS_PATTERN" >> $GITHUB_OUTPUT
+
+      - name: Integration tests
+        id: integration-tests
+        if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.get-changed-skills.outputs.skills_pattern != ''
+        env:
+          SKILLS_PATTERN: ${{ steps.get-changed-skills.outputs.skills_pattern }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          echo "Running integration tests for skills: $SKILLS_PATTERN"
+          npm run test:integration -- --testPathPattern="$SKILLS_PATTERN"
+          
+          # One or more result-{skill}.txt will be written to tests/
+          npm run mergeSkillInvocationTestResult
+          
+          # skill-invocation-test-summary.md will be written to tests/
+          cat skill-invocation-test-summary.md
+          
+          # Read the summary file and save to step output with commit hash
+          if [ -f skill-invocation-test-summary.md ]; then
+            echo "summary<<EOF" >> $GITHUB_OUTPUT
+            echo "**Commit:** \`${GH_SHA:0:7}\` ($GH_SHA)" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            cat skill-invocation-test-summary.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        if: steps.get-pr-number.outputs.pr_number != '' && steps.integration-tests.outputs.summary != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.get-pr-number.outputs.pr_number }}
+          SUMMARY: ${{ steps.integration-tests.outputs.summary }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body "$SUMMARY"
+
+      # Test strategy
+      # 1. Push the workflow to my fork main
+      # 2. Create a new branch of my fork main and edit 1 skill
+      # 3. Create a PR from the new branch to my fork main
+      # 4. Observe how the PR workflow run behaves
+      # 5. Make changes and repeat step 1-4 until the PR workflow works as expected
+      # 6. Push a new commit modifying another skill
+      # 7. Observe how the Push workflow run behaves
+      # 8. Make changes and repeat step 6-7 until the Push workflow works as expected
 
   update-readme:
     name: Update Coverage Grid
