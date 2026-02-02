@@ -126,8 +126,8 @@ jobs:
           fi
       
       # High level steps to run the integration tests for modified skills/tests
-      # 1.1 On PR, use git diff command to compare the current branch against the base branch for modified files
-      # 1.2 On Push, use git diff command to compare the current commit against the previous commit for modified files
+      # 1.1 On PR (create), use git diff command to compare the current branch against the base branch for modified files
+      # 1.2 On PR (push), use git diff command to compare the current commit against the previous commit for modified files
       # 2 Once we have the modified files, filter them to extract the skills whose content or test have been modified
       # 3 Compose a include pattern for these modified skills to run integration tests for them
       # 4 After the test finishes, run the merge result script to get a summary
@@ -135,13 +135,14 @@ jobs:
       
       - name: Setup Copilot CLI
         id: setup-copilot-cli
+        if: github.event_name == 'pull_request'
         uses: mvkaran/setup-copilot-cli@v1
         with:
           token: ${{ secrets.COPILOT_CLI_TOKEN }}
 
       - name: Get PR number
         id: get-pr-number
-        if: 
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_BRANCH_NAME: ${{ github.head_ref }}
@@ -156,19 +157,19 @@ jobs:
 
       - name: Get updated skills
         id: get-changed-skills
-        if: steps.get-pr-number.outputs.pr_number != ''
+        if: github.event_name == 'pull_request' && steps.get-pr-number.outputs.pr_number != ''
         env:
-          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_EVENT_ACTION: ${{ github.event.action }}
           GH_BASE_REF: ${{ github.base_ref }}
           GH_BEFORE: ${{ github.event.before }}
           GH_SHA: ${{ github.sha }}
         run: |
-          if [ "$GH_EVENT_NAME" = "pull_request" ]; then
-            # For PRs, compare against base branch
+          if [ "$GH_EVENT_ACTION" = "opened" ] || [ "$GH_EVENT_ACTION" = "reopened" ]; then
+            # For new PRs, compare against base branch
             git fetch origin "$GH_BASE_REF" --unshallow
             CHANGED=$(git diff --name-only "origin/$GH_BASE_REF"...HEAD)
           else
-            # For push events, compare with previous commit
+            # When pushing to a PR, compare with previous commit
             CHANGED=$(git diff --name-only "$GH_BEFORE" "$GH_SHA")
           fi
 
@@ -190,7 +191,7 @@ jobs:
 
       - name: Integration tests
         id: integration-tests
-        if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.get-changed-skills.outputs.skills_pattern != ''
+        if: github.event_name == 'pull_request' && steps.get-changed-skills.outputs.skills_pattern != ''
         env:
           SKILLS_PATTERN: ${{ steps.get-changed-skills.outputs.skills_pattern }}
           GH_SHA: ${{ github.sha }}
