@@ -284,10 +284,10 @@ let integrationSkipReason: string | null = null;
  */
 export function shouldSkipIntegrationTests(): boolean {
   // Always skip in CI
-  if (process.env.CI === 'true') {
-    integrationSkipReason = 'Running in CI environment';
-    return true;
-  }
+  // if (process.env.CI === 'true') {
+  //   integrationSkipReason = 'Running in CI environment';
+  //   return true;
+  // }
   
   // Skip if explicitly requested
   if (process.env.SKIP_INTEGRATION_TESTS === 'true') {
