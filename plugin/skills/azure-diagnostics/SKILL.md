@@ -1,6 +1,6 @@
 ---
 name: azure-diagnostics
-description: "Debug and troubleshoot production issues on Azure. Covers Container Apps and Function Apps diagnostics, log analysis with KQL, health checks, and common issue resolution for image pulls, cold starts, health probes, and function invocation failures. WHEN: debug production issues, troubleshoot container apps, troubleshoot function apps, troubleshoot Azure Functions, analyze logs with KQL, fix image pull failures, resolve cold start issues, investigate health probe failures, check resource health, view application logs, find root cause of errors, function app not working, function invocation failures."
+description: "Debug production issues on Azure Container Apps and Azure Functions using logs, KQL, and health checks. Focuses on image pull failures, cold starts, health probe issues, and function invocation failures. WHEN: debug production issues, troubleshoot container apps, troubleshoot function apps, troubleshoot Azure Functions, analyze logs with KQL, fix image pull failures, resolve cold start issues, investigate health probe failures, check resource health, view application logs, find root cause of errors, function app not working."
 license: MIT
 metadata:
   author: Microsoft
