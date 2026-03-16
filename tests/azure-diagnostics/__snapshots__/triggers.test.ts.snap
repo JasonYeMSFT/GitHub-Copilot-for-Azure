@@ -2,10 +2,9 @@
 
 exports[`azure-diagnostics - Trigger Tests Trigger Keywords Snapshot skill description triggers match snapshot 1`] = `
 {
-  "description": "Debug production issues on Azure Container Apps and Azure Functions using logs, KQL, and health checks. Focuses on image pull failures, cold starts, health probe issues, and function invocation failures. WHEN: debug production issues, troubleshoot container apps, troubleshoot function apps, troubleshoot Azure Functions, analyze logs with KQL, fix image pull failures, resolve cold start issues, investigate health probe failures, check resource health, view application logs, find root cause of errors, function app not working.",
+  "description": "Debug and troubleshoot Azure Container Apps and Function Apps production issues using log analysis, health checks, and KQL. WHEN: debug production issues, troubleshoot containerized apps, troubleshoot Azure Functions, analyze logs with KQL, fix image pull failures, investigate health probe failures, troubleshoot cold starts, check resource health, find root cause of errors, function not working.",
   "extractedKeywords": [
     "analyze",
-    "application",
     "apps",
     "azure",
     "cause",
@@ -37,7 +36,6 @@ exports[`azure-diagnostics - Trigger Tests Trigger Keywords Snapshot skill descr
     "resolve",
     "resource",
     "root",
-    "start",
     "starts",
     "troubleshoot",
     "using",
@@ -53,7 +51,6 @@ exports[`azure-diagnostics - Trigger Tests Trigger Keywords Snapshot skill descr
 exports[`azure-diagnostics - Trigger Tests Trigger Keywords Snapshot skill keywords match snapshot 1`] = `
 [
   "analyze",
-  "application",
   "apps",
   "azure",
   "cause",
@@ -85,7 +82,6 @@ exports[`azure-diagnostics - Trigger Tests Trigger Keywords Snapshot skill keywo
   "resolve",
   "resource",
   "root",
-  "start",
   "starts",
   "troubleshoot",
   "using",
