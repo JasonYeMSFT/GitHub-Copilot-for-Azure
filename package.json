@@ -11,7 +11,7 @@
     "test:skills:integration": "cd tests && npm run test:integration --",
     "release": "semantic-release",
     "postinstall": "cd scripts && npm install",
-    "dashboard:collect": "cd scripts && npm run dashboard:collect",
+    "dashboard:collect": "cd tests && npm run test:ci && cd ../scripts && npm run dashboard:collect",
     "dashboard": "cd scripts && npm run dashboard"
   },
   "engines": {
