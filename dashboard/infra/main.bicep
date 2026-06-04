@@ -18,6 +18,12 @@ param msbenchEvalTableName string = 'msbenchevalmetrics'
 @description('Name of the MSBench reports blob container.')
 param msbenchReportsContainerName string = 'msbench-reports'
 
+@description('Subscription ID where the CI managed identity should receive the Contributor role. TODO: replace placeholder with the real subscription ID.')
+param ciContributorSubscriptionId string = '00000000-0000-0000-0000-000000000000'
+
+@description('Resource group containing the existing MSBench nightly data storage account. TODO: replace placeholder with the real resource group name.')
+param msbenchStorageResourceGroupName string = 'rg-msbench-placeholder'
+
 var tags = {
   'azd-env-name': environmentName
   skipDelete: true
@@ -57,6 +63,40 @@ module syncIdentity './modules/managed-identity.bicep' = {
   }
 }
 
+// The CI MI (ciIdentity) is used by CI pipelines that need to:
+// - Manage resources in the target subscription (Contributor at subscription scope).
+// - Write blobs and table entities in the dashboard storage account
+//   (Storage Blob Data Contributor + Storage Table Data Contributor).
+module ciIdentity './modules/managed-identity.bicep' = {
+  name: 'ciIdentity'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    environmentName: environmentName
+    suffix: '-ci'
+  }
+}
+
+module ciSubscriptionContributor './modules/subscription-role-assignment.bicep' = {
+  name: 'ciSubscriptionContributor'
+  scope: subscription(ciContributorSubscriptionId)
+  params: {
+    principalId: ciIdentity.outputs.identityPrincipalId
+    // Contributor
+    roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
+  }
+}
+
+module ciMsbenchStorageRoles './modules/msbench-storage-role-assignments.bicep' = {
+  name: 'ciMsbenchStorageRoles'
+  scope: resourceGroup(msbenchStorageResourceGroupName)
+  params: {
+    storageAccountName: msbenchStorageAccountName
+    ciPrincipalId: ciIdentity.outputs.identityPrincipalId
+  }
+}
+
 module storage './modules/storage.bicep' = {
   scope: rg
   params: {
@@ -64,6 +104,7 @@ module storage './modules/storage.bicep' = {
     tags: tags
     environmentName: environmentName
     principalId: identity.outputs.identityPrincipalId
+    ciPrincipalId: ciIdentity.outputs.identityPrincipalId
   }
 }
 
