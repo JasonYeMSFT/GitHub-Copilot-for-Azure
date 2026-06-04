@@ -18,6 +18,15 @@ param msbenchEvalTableName string = 'msbenchevalmetrics'
 @description('Name of the MSBench reports blob container.')
 param msbenchReportsContainerName string = 'msbench-reports'
 
+@description('Subscription ID where the prod managed identity is granted the Contributor role. TODO: replace placeholder before deploying.')
+param prodSubscriptionId string = '00000000-0000-0000-0000-000000000000'
+
+@description('Subscription ID that hosts the existing MSBench nightly data storage account. TODO: replace placeholder before deploying.')
+param msbenchStorageSubscriptionId string = '00000000-0000-0000-0000-000000000000'
+
+@description('Resource group that hosts the existing MSBench nightly data storage account. TODO: replace placeholder before deploying.')
+param msbenchStorageResourceGroupName string = 'rg-msbench-placeholder'
+
 var tags = {
   'azd-env-name': environmentName
   skipDelete: true
@@ -54,6 +63,50 @@ module syncIdentity './modules/managed-identity.bicep' = {
     tags: tags
     environmentName: environmentName
     suffix: '-sync'
+  }
+}
+
+// The prod MI (prodIdentity) has the following permissions:
+// - Contributor on the prod subscription (scope: subscription(prodSubscriptionId)).
+// - Storage Blob Data Contributor + Storage Table Data Contributor on the existing
+//   msbenchnightlydata storage account (where the Function App reads MSBench production data from).
+// - Storage Blob Data Contributor + Storage Table Data Contributor on the dashboard's own
+//   storage account (where integration test workflows write production reports that the
+//   Function App reads from the integration-reports / manual-integration-reports containers).
+module prodIdentity './modules/managed-identity.bicep' = {
+  name: 'prodIdentity'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    environmentName: environmentName
+    suffix: '-prod'
+  }
+}
+
+module prodSubscriptionContributorRole './modules/subscription-contributor-role-assignment.bicep' = {
+  name: 'prodSubscriptionContributorRole'
+  scope: subscription(prodSubscriptionId)
+  params: {
+    principalId: prodIdentity.outputs.identityPrincipalId
+  }
+}
+
+module prodMsbenchStorageRoles './modules/storage-data-contributor-role-assignments.bicep' = {
+  name: 'prodMsbenchStorageRoles'
+  scope: resourceGroup(msbenchStorageSubscriptionId, msbenchStorageResourceGroupName)
+  params: {
+    storageAccountName: msbenchStorageAccountName
+    principalId: prodIdentity.outputs.identityPrincipalId
+  }
+}
+
+module prodDashboardStorageRoles './modules/storage-data-contributor-role-assignments.bicep' = {
+  name: 'prodDashboardStorageRoles'
+  scope: rg
+  params: {
+    storageAccountName: storage.outputs.storageAccountName
+    principalId: prodIdentity.outputs.identityPrincipalId
   }
 }
 
