@@ -107,10 +107,13 @@ export function harborExport(evalYamlPath: string): void {
     writeFileSync(dockerfilePath, patched);
 
     // Step 4: Build the image with a build context root at the repo root.
-    const runtimeIdentifier = "x86_64";
+    // Image name: <benchmark>.eval.<architecture>.<instance_id>:<tag>. Keep dataset.jsonl entries in sync with these values.
+    const benchmark = "azure-skills-harbor";
+    const architecture = "x86_64";
+    // The instance_id combines the skill name with the normalized Vally stimulus name.
     const instanceId = `${skill}-${task.name}`;
-    const imageVersion = "0.0.1";
-    const image = `msbenchstaging.azurecr.io/${skill}.${runtimeIdentifier}.${instanceId}-linux:msbench-${imageVersion}`;
+    const imageTag = "msbench-0.0.1";
+    const image = `msbenchstaging.azurecr.io/${benchmark}.eval.${architecture}.${instanceId}:${imageTag}`;
     execFileSync("docker", [
       "build", "--file", dockerfilePath, "--tag", image, repoRoot,
     ], { cwd: repoRoot, stdio: "inherit" });

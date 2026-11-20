@@ -28,6 +28,12 @@ const vallyEntry = path.join(
   "dist",
   "index.js",
 );
+const image = "msbenchstaging.azurecr.io/azure-skills-harbor.eval.x86_64.azure-kusto-query-logs:msbench-0.0.1";
+
+function mockFiles(dockerfile: string, toml: string): void {
+  vi.mocked(readFileSync).mockImplementation(file =>
+    String(file).endsWith("Dockerfile") ? dockerfile : toml);
+}
 
 describe("harborExport", () => {
   beforeEach(() => {
@@ -39,10 +45,9 @@ describe("harborExport", () => {
     readDirectory.mockReturnValue([
       { name: "query-logs", isDirectory: () => true },
     ]);
-    vi.mocked(readFileSync).mockImplementation(file =>
-      String(file).endsWith("Dockerfile")
-        ? 'FROM ubuntu:24.04\nUSER root\nWORKDIR /app\nCOPY ["fixture/", "/app/fixture/"]\n'
-        : '[agent]\ntimeout_sec = 600\n[environment]\nbuild_timeout_sec = 600\n[metadata]\nname = "query"\n');
+    mockFiles(
+      'FROM ubuntu:24.04\nUSER root\nWORKDIR /app\nCOPY ["fixture/", "/app/fixture/"]\n',
+      '[agent]\ntimeout_sec = 600\n[environment]\nbuild_timeout_sec = 600\n[metadata]\nname = "query"\n');
   });
 
   test("exports, rebases fixtures, builds from the root, and configures the image", () => {
@@ -60,21 +65,21 @@ describe("harborExport", () => {
       expect.stringContaining('COPY ["harbor/azure-kusto/query-logs/environment/fixture/","/app/fixture/"]'));
     expect(execFileSync).toHaveBeenNthCalledWith(2, "docker", [
       "build", "--file", path.join(taskDir, "environment/Dockerfile"),
-      "--tag", "msbenchstaging.azurecr.io/azure-kusto.x86_64.azure-kusto-query-logs-linux:msbench-0.0.1", root,
+      "--tag", image, root,
     ], expect.objectContaining({ cwd: root }));
     expect(writeFileSync).toHaveBeenLastCalledWith(path.join(taskDir, "task.toml"),
-      '[agent]\ntimeout_sec = 600\n[environment]\ndocker_image = "msbenchstaging.azurecr.io/azure-kusto.x86_64.azure-kusto-query-logs-linux:msbench-0.0.1"\nskills_dir = "/skills"\nbuild_timeout_sec = 600\n'
+      `[agent]\ntimeout_sec = 600\n[environment]\ndocker_image = "${image}"\nskills_dir = "/skills"\nbuild_timeout_sec = 600\n`
       + azureMcpConfig + '[metadata]\nname = "query"\n');
   });
 
   test("replaces existing environment image and skills settings without duplicates", () => {
-    vi.mocked(readFileSync).mockReturnValueOnce("FROM ubuntu:24.04\nUSER root\n")
-      .mockReturnValueOnce('[environment]\ndocker_image = "old:image"\n  skills_dir = "/old-skills"\nbuild_timeout_sec = 600\n[agent]\ntimeout_sec = 600\n');
+    mockFiles("FROM ubuntu:24.04\nUSER root\n",
+      '[environment]\ndocker_image = "old:image"\n  skills_dir = "/old-skills"\nbuild_timeout_sec = 600\n[agent]\ntimeout_sec = 600\n');
 
     harborExport(evalPath);
 
     expect(writeFileSync).toHaveBeenLastCalledWith(path.join(taskDir, "task.toml"),
-      '[environment]\ndocker_image = "msbenchstaging.azurecr.io/azure-kusto.x86_64.azure-kusto-query-logs-linux:msbench-0.0.1"\nskills_dir = "/skills"\nbuild_timeout_sec = 600\n'
+      `[environment]\ndocker_image = "${image}"\nskills_dir = "/skills"\nbuild_timeout_sec = 600\n`
       + azureMcpConfig + "[agent]\ntimeout_sec = 600\n");
   });
 
